@@ -1012,3 +1012,4 @@ define private void @pushShadowFrameLineNumber(%ShadowFrame* %frame, i32 %lineNu
     store i32 %lineNumber, i32* %__shadowFrame_lineNumber
     ret void
 }
+
