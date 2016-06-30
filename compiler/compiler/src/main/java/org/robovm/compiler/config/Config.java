@@ -66,6 +66,7 @@ import org.robovm.compiler.plugin.Plugin;
 import org.robovm.compiler.plugin.PluginArgument;
 import org.robovm.compiler.plugin.TargetPlugin;
 import org.robovm.compiler.plugin.annotation.AnnotationImplPlugin;
+import org.robovm.compiler.plugin.debug.DwarfDebugInformationPlugin;
 import org.robovm.compiler.plugin.lambda.LambdaPlugin;
 import org.robovm.compiler.plugin.objc.InterfaceBuilderClassesPlugin;
 import org.robovm.compiler.plugin.objc.ObjCBlockPlugin;
@@ -175,7 +176,10 @@ public class Config {
     private Tools tools;
     
     @Element(required = false)
-    private boolean useLineNumbers = true;
+    private boolean useLineNumbers;
+    
+    @Element(required = false)
+    private boolean useDwarfDebbuging;
 
     private SigningIdentity iosSignIdentity;
     private ProvisioningProfile iosProvisioningProfile;
@@ -229,7 +233,8 @@ public class Config {
                 new ObjCBlockPlugin(),
                 new AnnotationImplPlugin(),
                 new LambdaPlugin(),         
-                new ShadowFramePlugin()
+                new ShadowFramePlugin(),
+                new DwarfDebugInformationPlugin()
                 ));
         this.loadPluginsFromClassPath();
     }
@@ -309,6 +314,14 @@ public class Config {
 
     public void setUseLineNumbers(boolean useLineNumbers) {
         this.useLineNumbers = useLineNumbers;
+    }
+    
+    public boolean isUseDwarfDebugging() {
+        return useDwarfDebbuging;
+    }
+
+    public void setUseDwarfDebugging(boolean useDwarfDebbuging) {
+        this.useDwarfDebbuging = useDwarfDebbuging;
     }
 
     public boolean isDebug() {

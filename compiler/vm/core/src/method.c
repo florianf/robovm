@@ -380,18 +380,6 @@ ObjectArray* rvmCallStackToStackTraceElements(Env* env, CallStack* callStack, ji
         return empty_java_lang_StackTraceElement_array;
     }
 
-    ShadowFrame* shadowFrame = env->shadowFrame;
-    while (shadowFrame != NULL) {
-      DEBUGF("Shadowframe lineNumber %d, address %d", shadowFrame->lineNumber, shadowFrame);
-      if (shadowFrame != shadowFrame->prev) {
-        shadowFrame = shadowFrame->prev;
-      }
-      else {
-        shadowFrame = NULL;
-      }
-
-    }
-
     // Count the number of methods
     jint index = first;
     jint length = 0;
@@ -421,15 +409,22 @@ ObjectArray* rvmCallStackToStackTraceElements(Env* env, CallStack* callStack, ji
             if (rvmExceptionOccurred(env)) {
                 return NULL;
             }
-
-            //New method of getting lineNumbers via shadowframes
-            ShadowFrame* shadowFrame = env->shadowFrame;
-            while (shadowFrame != NULL) {
-                if (shadowFrame->functionAddress == m->impl) {
-                    args[3].i = shadowFrame->lineNumber;
-                    break;
-                }
-                shadowFrame = shadowFrame->prev;
+			
+			//We got DWARF debugging info
+			if (frame->lineNumber > -1) {
+				args[3].i = frame->lineNumber;
+			}
+			//Let's try shadowFrame lineNumbers
+			else {
+	            //New method of getting lineNumbers via shadowframes
+	            ShadowFrame* shadowFrame = env->shadowFrame;
+	            while (shadowFrame != NULL) {
+	                if (shadowFrame->functionAddress == m->impl) {
+	                    args[3].i = shadowFrame->lineNumber;
+	                    break;
+	                }
+	                shadowFrame = shadowFrame->prev;
+	            }
             }
 
             array->values[i] = rvmNewObjectA(env, java_lang_StackTraceElement,

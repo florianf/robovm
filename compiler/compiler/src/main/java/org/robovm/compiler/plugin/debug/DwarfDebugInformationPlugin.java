@@ -93,11 +93,11 @@ import java.nio.file.Paths;
  * This plugin adds LLVM / DWARF debug metadata when compiled in debug mode
  * 
  */
-public class DebugInformationPlugin extends AbstractCompilerPlugin {
+public class DwarfDebugInformationPlugin extends AbstractCompilerPlugin {
     private Logger log;
     private String[] sourcePath;
     
-    private static FunctionRef LLVM_DBG_DECLARE_FUN = new FunctionRef("llvm.dbg.declare", new FunctionType(Type.VOID, new Type[] { Type.METADATA, Type.METADATA }));
+    private static FunctionRef LLVM_DBG_DECLARE_FUN = new FunctionRef("llvm.dbg.declare", new FunctionType(Type.VOID, new Type[] { Type.METADATA, Type.METADATA, Type.METADATA }));
     private static FunctionDeclaration LLVM_DBG_DECLARE_DECLARATION = new FunctionDeclaration(LLVM_DBG_DECLARE_FUN);
     
     private UnnamedMetadata booleanTypeNode;
@@ -113,12 +113,13 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
 	
 	private UnnamedMetadata fileContext;
 	private UnnamedMetadata sourceFileMeta;
+	private UnnamedMetadata expressionMeta;
 	
 	private UnnamedMetadata emptyNode;
 	private List<UnnamedMetadataRef> subprograms;
     private UnnamedMetadata subprogramsMetadata;
     
-    public DebugInformationPlugin() {
+    public DwarfDebugInformationPlugin() {
 	}
     
     public PluginArguments getArguments() {
@@ -127,6 +128,10 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
     
     @Override
     public void beforeConfig(Builder builder, Config config) throws IOException {
+        if (!config.isUseDwarfDebugging()) {
+            return;
+        }
+        
     	super.beforeConfig(builder, config);
     	
     	String sourcePathParam = parseArguments(config).get("sourcepath");
@@ -137,7 +142,9 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
     
     @Override
     public void beforeClass(Config config, Clazz clazz, ModuleBuilder moduleBuilder) throws IOException {
-    	super.beforeClass(config, clazz, moduleBuilder);
+        if (!config.isUseDwarfDebugging()) {
+            return;
+        }
     	
     	subprograms = new ArrayList<>();
     	
@@ -165,6 +172,10 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
     	fileContextNode.setDwarfValues(new String[]{sourceFile.getAbsolutePath()});
 
     	fileContext = moduleBuilder.newUnnamedMetadata(fileContextNode);
+    	
+    	DwarfMetadataNode expressionNode = new DwarfMetadataNode(new Value[] {new MetadataString("0x" + Integer.toHexString(600))});
+    	expressionNode.setDwarfTag("DW_TAG_expression");
+    	expressionMeta = moduleBuilder.newUnnamedMetadata(expressionNode);
     	
     	moduleBuilder.addNamedMetadata(new NamedMetadata("llvm.dbg.cu", new UnnamedMetadata[] { moduleBuilder.newUnnamedMetadata(compileUnitBuilder.build()) }));
     	moduleBuilder.addNamedMetadata(new NamedMetadata("llvm.module.flags", new UnnamedMetadata[] { dwarfVersion, debugInfoVersion }));
@@ -229,7 +240,7 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
     			.build());
     	
     	emptyEnvType = moduleBuilder.newUnnamedMetadata(new DerivedTagBuilder(emptyNode)
-    			.setName("")
+    			.setName("Env")
     			.setAlignmentInBits(longSize)
     			.setSizeInBits(longSize)
     			.build());
@@ -239,13 +250,14 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
     			.setAlignmentInBits(longSize)
     			.setSizeInBits(longSize)
     			.build());
-    	
     }
     
     @Override
     public void afterClass(Config config, Clazz clazz, ModuleBuilder moduleBuilder) throws IOException {
-    	super.afterClass(config, clazz, moduleBuilder);
-    	
+        if (!config.isUseDwarfDebugging()) {
+            return;
+        }
+        
     	subprogramsMetadata.setValue(new MetadataNode(subprograms));
     }
     
@@ -254,7 +266,7 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
     public void afterMethod(Config config, Clazz clazz, SootMethod method, ModuleBuilder moduleBuilder,
     		Function function) throws IOException {
     	
-    	if (!method.hasActiveBody()) {
+    	if (!method.hasActiveBody() || !config.isUseDwarfDebugging()) {
     		return;
     	}
     	
@@ -276,7 +288,7 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
     	int methodLineNumber = Integer.MAX_VALUE;
     	Map<Instruction, Integer> lineNumberDebugInfo = new HashMap<>();
     	
-    	/*
+    	
     	Map<DefinitionStmt, LocalDebugVariable> localVariables = new HashMap<>();
         for (LocalVariable local : method.getActiveBody().getLocalVariables()) {
         	for (UnitBox box : local.getUnitBoxes()) {
@@ -293,7 +305,7 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
         }
     	
         System.out.println(function.getType().getParameterTypes());
-        */
+        
         //variables have circular reference on submodule, needs to be defined here
         UnnamedMetadata subModuleMeta = moduleBuilder.newUnnamedMetadata();
         List<UnnamedMetadataRef> localVarsMetadata = new ArrayList<>();
@@ -307,51 +319,69 @@ public class DebugInformationPlugin extends AbstractCompilerPlugin {
                 for (Object object : units) {
                     if (object instanceof Unit) {
                         Unit unit = (Unit) object;
+                        
+                        LineNumberTag tag = (LineNumberTag) unit.getTag("LineNumberTag");
+                        if (tag != null) {
+                        	currentLineNumber = tag.getLineNumber();
+                        	methodLineNumber = Math.min(methodLineNumber, currentLineNumber);
+                        }
+                        
                         //first tries for local variables debug info
                         //not finished
-                        /*
                         if (instruction instanceof Store) {
 	                        if (localVariables.containsKey(unit)) {
+	                        	
 	                        	LocalDebugVariable debugVar = localVariables.get(unit);
 	                        	
 	                        	//build this and env arg variable
-	                        	if (debugVar.variable.getName().equals("this")) {
+	                        	if (debugVar.variable.getName().length() == 1) {
+	                        		Store storeInstruction = (Store) bb.getInstructions().get(i + 1);
 	                        		System.out.println("Found instruction for this variable: " + localVariables.get(unit));
 	                        		
 	                        		LocalVariableBuilder envVariable = new LocalVariableBuilder(LocalVariableBuilder.DW_TAG_arg_variable, emptyNode)
-	                        				.setName("env")
+	                        				.setName("p0")
 	                        				.setContextDescriptor(subModuleMeta.ref())
 	                        				.setSourceDirectory(fileContext.ref())
-	                        				.setTypeDescriptor(this.emptyEnvType.ref())
+	                        				.setTypeDescriptor(this.objectTypeNode.ref())
 	                        				.setLineNumber(debugVar.lineNumber)
 	                        				.setArgumentNumber(1);
 	                        		
 	                        		
 	                        		LocalVariableBuilder thisVariable = new LocalVariableBuilder(LocalVariableBuilder.DW_TAG_arg_variable, emptyNode)
-	                        				.setName(debugVar.variable.getName())
+	                        				.setName("p1")
 	                        				.setContextDescriptor(subModuleMeta.ref())
 	                        				.setSourceDirectory(fileContext.ref())
 	                        				.setTypeDescriptor(this.objectTypeNode.ref())
 	                        				.setLineNumber(debugVar.lineNumber)
 	                        				.setArgumentNumber(2);
 	                        		
+	                        		LocalVariableBuilder intVariable = new LocalVariableBuilder(LocalVariableBuilder.DW_TAG_arg_variable, emptyNode)
+	                        				.setName(debugVar.variable.getName())
+	                        				.setContextDescriptor(subModuleMeta.ref())
+	                        				.setSourceDirectory(fileContext.ref())
+	                        				.setTypeDescriptor(this.intTypeNode.ref())
+	                        				.setLineNumber(debugVar.lineNumber)
+	                        				.setArgumentNumber(3);
+	                        		
 	                        		UnnamedMetadata envVariableMeta = moduleBuilder.newUnnamedMetadata(envVariable.build());
 	                        		UnnamedMetadata thisVariableMeta = moduleBuilder.newUnnamedMetadata(thisVariable.build());
+	                        		UnnamedMetadata intVariableMeta = moduleBuilder.newUnnamedMetadata(intVariable.build());
 	                        		
 	                        		localVarsMetadata.add(envVariableMeta.ref());
 	                        		localVarsMetadata.add(thisVariableMeta.ref());
+	                        		localVarsMetadata.add(intVariableMeta.ref());
+	                        		
+	                        		Instruction dbgCallInstruciton = new Call(LLVM_DBG_DECLARE_FUN, new Value[]{new MetadataValue(storeInstruction.getPointer()), new MetadataValue(intVariableMeta.ref()), new MetadataValue(expressionMeta.ref())});
+	                        		lineNumberDebugInfo.put(dbgCallInstruciton, currentLineNumber);
+	                        		bb.getInstructions().add(i + 2, dbgCallInstruciton);
 	                        	}
 	                        	
 	                        }
 	                        else {
 	                        }
                         }
-                        */
-                        LineNumberTag tag = (LineNumberTag) unit.getTag("LineNumberTag");
-                        if (tag != null) {
-                        	currentLineNumber = tag.getLineNumber();
-                        	methodLineNumber = Math.min(methodLineNumber, currentLineNumber);
-                        }
+                        
+                        
                     }
                 }
                 if (!lineNumberDebugInfo.containsKey(instruction) && currentLineNumber > -1) {

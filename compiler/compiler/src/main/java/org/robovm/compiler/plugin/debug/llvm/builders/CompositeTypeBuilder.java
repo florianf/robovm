@@ -44,7 +44,7 @@ public class CompositeTypeBuilder extends BasicTypeBuilder {
 			.append(runtimeLanguages);
 		
 		
-		DwarfMetadataNode node = new DwarfMetadataNode(new DwarfHeaderMetadataString(dwarfHeader.toString()), sourceDirectory, contextDescriptor, derivedFrom, memberDescriptors, runtimeLanguages, emptyNode.ref(), emptyNode.ref(), null);
+		DwarfMetadataNode node = new DwarfMetadataNode(new DwarfHeaderMetadataString(dwarfHeader.toString()), null, null, null, memberDescriptors, null, null, null);
 	
 		node.setDwarfTag("DW_TAG_subroutine_type");
 		node.setDwarfValues(new String[]{"line 0, size " + this.sizeInBits + ", align " + this.alignmentInBits + ", offset " + this.offsetInBits, "from"});

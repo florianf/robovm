@@ -37,7 +37,7 @@ public class DerivedTagBuilder extends BasicTypeBuilder {
 			.append("\\00")
 			.append(flags);
 		
-		DwarfMetadataNode node = new DwarfMetadataNode(new DwarfHeaderMetadataString(dwarfHeader.toString()), sourceDirectory, contextDescriptor, derivedFrom, null);
+		DwarfMetadataNode node = new DwarfMetadataNode(new DwarfHeaderMetadataString(dwarfHeader.toString()), sourceDirectory, contextDescriptor, derivedFrom);
 	
 		node.setDwarfTag("DW_TAG_pointer_type");
 		node.setDwarfValues(new String[]{name, "line 0, size " + this.sizeInBits + ", align " + this.alignmentInBits + ", offset " + this.offsetInBits, "from"});
