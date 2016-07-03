@@ -32,12 +32,14 @@ import org.robovm.compiler.llvm.MetadataNode;
 import org.robovm.compiler.llvm.MetadataString;
 import org.robovm.compiler.llvm.MetadataValue;
 import org.robovm.compiler.llvm.NamedMetadata;
+import org.robovm.compiler.llvm.PointerType;
 import org.robovm.compiler.llvm.Store;
 import org.robovm.compiler.llvm.StringConstant;
 import org.robovm.compiler.llvm.Type;
 import org.robovm.compiler.llvm.UnnamedMetadata;
 import org.robovm.compiler.llvm.UnnamedMetadataRef;
 import org.robovm.compiler.llvm.Value;
+import org.robovm.compiler.llvm.VariableRef;
 import org.robovm.compiler.log.Logger;
 import org.robovm.compiler.plugin.AbstractCompilerPlugin;
 import org.robovm.compiler.plugin.PluginArgument;
@@ -79,6 +81,8 @@ import soot.VoidType;
 import soot.jimple.AssignStmt;
 import soot.jimple.DefinitionStmt;
 import soot.jimple.IdentityStmt;
+import soot.jimple.ThisRef;
+import soot.jimple.internal.JIdentityStmt;
 import soot.jimple.internal.JimpleLocal;
 import soot.tagkit.LineNumberTag;
 import soot.tagkit.SourceFileTag;
@@ -97,7 +101,7 @@ public class DwarfDebugInformationPlugin extends AbstractCompilerPlugin {
     private Logger log;
     private String[] sourcePath;
     
-    private static FunctionRef LLVM_DBG_DECLARE_FUN = new FunctionRef("llvm.dbg.declare", new FunctionType(Type.VOID, new Type[] { Type.METADATA, Type.METADATA, Type.METADATA }));
+    private static FunctionRef LLVM_DBG_DECLARE_FUN = new FunctionRef("llvm.dbg.declare", new FunctionType(Type.VOID, new Type[] { Type.METADATA, Type.METADATA }));
     private static FunctionDeclaration LLVM_DBG_DECLARE_DECLARATION = new FunctionDeclaration(LLVM_DBG_DECLARE_FUN);
     
     private UnnamedMetadata booleanTypeNode;
@@ -303,14 +307,7 @@ public class DwarfDebugInformationPlugin extends AbstractCompilerPlugin {
         		}
         	}
         }
-    	
-        System.out.println(function.getType().getParameterTypes());
         
-        //variables have circular reference on submodule, needs to be defined here
-        UnnamedMetadata subModuleMeta = moduleBuilder.newUnnamedMetadata();
-        List<UnnamedMetadataRef> localVarsMetadata = new ArrayList<>();
-        
-    	//Taken from ShadowFramePlugin
         for (BasicBlock bb : function.getBasicBlocks()) {
             for (int i = 0; i < bb.getInstructions().size(); i++) {
                 Instruction instruction = bb.getInstructions().get(i);
@@ -325,17 +322,74 @@ public class DwarfDebugInformationPlugin extends AbstractCompilerPlugin {
                         	currentLineNumber = tag.getLineNumber();
                         	methodLineNumber = Math.min(methodLineNumber, currentLineNumber);
                         }
+                    }
+                }
+                
+                if (!lineNumberDebugInfo.containsKey(instruction) && currentLineNumber > -1) {
+                	lineNumberDebugInfo.put(instruction, currentLineNumber);
+                }
+            }
+        }
+    	        
+        System.out.println(function.getType().getParameterTypes());
+        
+        //variables have circular reference on submodule, needs to be defined here
+        UnnamedMetadata subProgramMeta = moduleBuilder.newUnnamedMetadata();
+        List<UnnamedMetadataRef> localVarsMetadata = new ArrayList<>();
+        
+        //create env debugging metadata
+        LocalVariableBuilder envVariable = new LocalVariableBuilder(LocalVariableBuilder.DW_TAG_arg_variable, emptyNode)
+				.setName("env")
+				.setContextDescriptor(subProgramMeta.ref())
+				.setSourceDirectory(fileContext.ref())
+				.setTypeDescriptor(this.objectTypeNode.ref())
+				.setLineNumber(methodLineNumber)
+				.setArgumentNumber(1);
+        UnnamedMetadata envVariableMeta = moduleBuilder.newUnnamedMetadata(envVariable.build());
+        //localVarsMetadata.add(envVariableMeta.ref());
+        
+        //allocate env pointer on stack
+        Alloca envStackAlloca = new Alloca(function.newVariable("__envStack", Types.ENV_PTR), Types.ENV_PTR);
+        function.getBasicBlocks().get(0).getInstructions().add(0, envStackAlloca);
+        VariableRef envStackVar = new VariableRef(envStackAlloca.getResult().getName(), new PointerType(function.getParameterRef(0).getType()));
+        //store env pointer on stack
+        Store storeInstr = new Store(function.getParameterRef(0), envStackVar);
+        function.getBasicBlocks().get(0).getInstructions().add(1, storeInstr);
+        //create lldb dbg.metadata call
+		Instruction dbgCallInstruciton = new Call(LLVM_DBG_DECLARE_FUN, new Value[]{new MetadataValue(storeInstr.getPointer()), new MetadataValue(envVariableMeta.ref())/*, new MetadataValue(expressionMeta.ref())*/});
+		lineNumberDebugInfo.put(dbgCallInstruciton, methodLineNumber);
+		function.getBasicBlocks().get(0).getInstructions().add(2, dbgCallInstruciton);
+		lineNumberDebugInfo.put(dbgCallInstruciton, methodLineNumber);
+		
+    	//Taken from ShadowFramePlugin
+        for (BasicBlock bb : function.getBasicBlocks()) {
+            for (int i = 0; i < bb.getInstructions().size(); i++) {
+                Instruction instruction = bb.getInstructions().get(i);
+                List<Object> units = instruction.getAttachments();
+                for (Object object : units) {
+                    if (object instanceof Unit) {
+                        Unit unit = (Unit) object;
                         
                         //first tries for local variables debug info
                         //not finished
                         if (instruction instanceof Store) {
 	                        if (localVariables.containsKey(unit)) {
+	                        	if (unit instanceof JIdentityStmt	) {
+									JIdentityStmt idStmt = (JIdentityStmt) unit;
+									if (idStmt != null && idStmt.getRightOpBox() != null) {
+										//special case, we got this object pointer
+										if (idStmt.getRightOpBox().getValue() instanceof ThisRef) {
+											
+										}										
+									}
+									
+								}
 	                        	
 	                        	LocalDebugVariable debugVar = localVariables.get(unit);
 	                        	
 	                        	//build this and env arg variable
 	                        	if (debugVar.variable.getName().length() == 1) {
-	                        		Store storeInstruction = (Store) bb.getInstructions().get(i + 1);
+	                        		/*Store storeInstruction = (Store) bb.getInstructions().get(i + 1);
 	                        		System.out.println("Found instruction for this variable: " + localVariables.get(unit));
 	                        		
 	                        		LocalVariableBuilder envVariable = new LocalVariableBuilder(LocalVariableBuilder.DW_TAG_arg_variable, emptyNode)
@@ -371,9 +425,9 @@ public class DwarfDebugInformationPlugin extends AbstractCompilerPlugin {
 	                        		localVarsMetadata.add(thisVariableMeta.ref());
 	                        		localVarsMetadata.add(intVariableMeta.ref());
 	                        		
-	                        		Instruction dbgCallInstruciton = new Call(LLVM_DBG_DECLARE_FUN, new Value[]{new MetadataValue(storeInstruction.getPointer()), new MetadataValue(intVariableMeta.ref()), new MetadataValue(expressionMeta.ref())});
+	                        		dbgCallInstruciton = new Call(LLVM_DBG_DECLARE_FUN, new Value[]{new MetadataValue(storeInstruction.getPointer()), new MetadataValue(intVariableMeta.ref()), new MetadataValue(expressionMeta.ref())});
 	                        		lineNumberDebugInfo.put(dbgCallInstruciton, currentLineNumber);
-	                        		bb.getInstructions().add(i + 2, dbgCallInstruciton);
+	                        		bb.getInstructions().add(i + 2, dbgCallInstruciton);*/
 	                        	}
 	                        	
 	                        }
@@ -383,9 +437,6 @@ public class DwarfDebugInformationPlugin extends AbstractCompilerPlugin {
                         
                         
                     }
-                }
-                if (!lineNumberDebugInfo.containsKey(instruction) && currentLineNumber > -1) {
-                	lineNumberDebugInfo.put(instruction, currentLineNumber);
                 }
             }
         }
@@ -412,15 +463,15 @@ public class DwarfDebugInformationPlugin extends AbstractCompilerPlugin {
     			.setVariables(methodArgsMetadata.ref());
     			//.setVirtuality((method.getModifiers() & Modifier.FINAL) != 0 ? 0 : 1);
     	
-    	subModuleMeta.setValue(sub.build());
+    	subProgramMeta.setValue(sub.build());
     	
-    	subprograms.add(subModuleMeta.ref());
+    	subprograms.add(subProgramMeta.ref());
     	
     	for (Entry<Instruction, Integer> entry : lineNumberDebugInfo.entrySet()) {
     		UnnamedMetadata debugLine = moduleBuilder.newUnnamedMetadata(new MetadataNode(new Value[]{
     				new IntegerConstant(entry.getValue()),
     				new IntegerConstant(0),
-    				subModuleMeta.ref(),
+    				subProgramMeta.ref(),
     				null
     			}));
     		entry.getKey().addMetadata(new DebugMetadata(new DebugMetadataNode(debugLine.ref())));
