@@ -17,11 +17,29 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.jdt.junit,
  org.eclipse.jdt.junit.runtime,
  org.eclipse.jdt.junit4.runtime
-Bundle-Version: 2.2.0.qualifier
+Bundle-Version: 2.2.0
 Bundle-ManifestVersion: 2
 Bundle-Activator: org.robovm.eclipse.RoboVMPlugin
 Bundle-SymbolicName: org.robovm.eclipse.ui;singleton:=true
 Bundle-ClassPath: .,
  lib/commons-compress.jar,
- lib/robovm-dist-compiler.jar,
- lib/robovm-templater.jar
+ external:/Users/generalsolutions/.m2/repository/commons-io/commons-io/2.4/commons-io-2.4.jar,
+ external:/Users/generalsolutions/.m2/repository/org/apache/commons/commons-exec/1.0.1/commons-exec-1.0.1.jar,
+ external:/Users/generalsolutions/.m2/repository/org/apache/commons/commons-lang3/3.3.2/commons-lang3-3.3.2.jar,
+ external:/Users/generalsolutions/.m2/repository/com/googlecode/plist/dd-plist/1.16/dd-plist-1.16.jar,
+ external:/Users/generalsolutions/.m2/repository/org/simpleframework/simple-xml/2.7/simple-xml-2.7.jar,
+ external:/Users/generalsolutions/.m2/repository/org/bouncycastle/bcpkix-jdk15on/1.49/bcpkix-jdk15on-1.49.jar,
+ external:/Users/generalsolutions/.m2/repository/org/bouncycastle/bcprov-jdk15on/1.49/bcprov-jdk15on-1.49.jar,
+ external:/Users/generalsolutions/.m2/repository/com/googlecode/json-simple/json-simple/1.1.1/json-simple-1.1.1.jar,
+ external:/Users/generalsolutions/.m2/repository/org/ow2/asm/asm-debug-all/5.0.3/asm-debug-all-5.0.3.jar,
+ external:/Users/generalsolutions/.m2/repository/org/zeroturnaround/zt-zip/1.7/zt-zip-1.7.jar,
+ external:/Users/generalsolutions/.m2/repository/org/slf4j/slf4j-api/1.6.6/slf4j-api-1.6.6.jar,
+ external:/Users/generalsolutions/.m2/repository/net/java/dev/jna/jna/4.1.0/jna-4.1.0.jar,
+ external:/Users/generalsolutions/.m2/repository//org/robovm/robovm-soot/2.5.0-2/robovm-soot-2.5.0-2.jar,
+ external:/Users/generalsolutions/Documents/projects/robovm/compiler/rt/target/classes,
+ external:/Users/generalsolutions/Documents/projects/robovm/compiler/libimobiledevice/target/classes,
+ external:/Users/generalsolutions/Documents/projects/robovm/compiler/llvm/target/classes,
+ external:/Users/generalsolutions/Documents/projects/robovm/compiler/compiler/target/classes,
+ external:/Users/generalsolutions/Documents/projects/robovm/plugins/templates/templater/target/classes,
+ external:/Users/generalsolutions/Documents/projects/robovm/plugins/templates/console/target/classes,
+ external:/Users/generalsolutions/Documents/projects/robovm/plugins/templates/ios-single-view-no-ib//target/classes 

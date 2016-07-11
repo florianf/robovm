@@ -24,7 +24,7 @@
         <artifactId>maven-jar-plugin</artifactId>
       </plugin>
 
-      <plugin>
+      <!-- <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
         <version>1.7</version>
@@ -57,7 +57,7 @@
             </goals>
           </execution>
         </executions>
-      </plugin>
+      </plugin> -->
     </plugins>
   </build>
 </project>

@@ -174,7 +174,7 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
+      <!-- <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <version>1.5.0</version>
@@ -189,13 +189,13 @@
               <workingDirectory>${project.basedir}/../vm</workingDirectory>
               <executable>${project.basedir}/../vm/build.sh</executable>
               <arguments>
-                <argument>--build=release</argument>
+                <argument>build=release</argument>
               </arguments>
               <skip>${skipBuildBinaries}</skip>
             </configuration>
           </execution>
         </executions>
-      </plugin>
+      </plugin> -->
     </plugins>
   </build>
 
