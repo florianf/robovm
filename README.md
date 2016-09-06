@@ -1,4 +1,4 @@
-# RoboVM
+# RoboVM [![Join the chat at https://gitter.im/MobiDevelop/robovm](https://badges.gitter.im/MobiDevelop/robovm.svg)](https://gitter.im/MobiDevelop/robovm?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 [**Website**](http://robovm.mobidevelop.com) -
 [**Developer Guide**](https://github.com/MobiDevelop/robovm/wiki/Developer-Guide) -
